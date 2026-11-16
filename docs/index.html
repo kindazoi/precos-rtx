@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Preços RTX 5070 Ti</title>
+<title>Preços na Globaldata</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -48,88 +48,100 @@
   .e-stock { --cor: var(--desce); } .e-esgotado { --cor: var(--sobe); }
   .e-encomenda, .e-prevenda { --cor: #c08a1e; } .e-desconhecido { --cor: var(--suave); }
   tr.esgotado td:not(:last-child) { color: var(--suave); }
+  section + section { margin-top: 56px; padding-top: 8px; border-top: 1px solid var(--linha); }
+  h2.produto { font: 600 clamp(1.6rem, 4vw, 2.2rem)/1.1 "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; margin: 32px 0 6px; }
+  h3 { font-size: 1.05rem; font-weight: 600; margin: 28px 0 12px; }
   .legenda { color: var(--suave); font-size: .85rem; margin: 8px 0 0; }
 </style>
 </head>
 <body>
 <main>
-  <h1>RTX 5070 Ti</h1>
+  <h1>Preços na Globaldata</h1>
   <p class="resumo" id="resumo"></p>
-
-  <h2>Todas as placas hoje, da mais cara à mais barata</h2>
-  <div class="tabela"><table>
-    <thead><tr><th>Placa</th><th>Loja</th><th>Estado</th><th class="num">Preço</th><th class="num">Desde a última leitura</th><th class="num">Mínimo registado</th></tr></thead>
-    <tbody id="linhas"></tbody>
-  </table></div>
-
-  <h2>Evolução do preço</h2>
-  <div class="grelha" id="graficos"></div>
-  <p class="legenda">Nos gráficos, os pontos ocos marcam os dias em que a placa não estava em stock.</p>
+  <div id="produtos"></div>
+  <p class="legenda">Nos gráficos, os pontos ocos marcam os dias em que o artigo não estava em stock.</p>
 </main>
 <script>
-const DADOS = {"hoje": "2026-11-16", "series": [{"url": "https://www.globaldata.pt/grafica-asus-geforce-rtx-5070-ti-prime-oc-16gb-gddr7-dlss4/90YV0MF0-M0NA00.html", "loja": "Globaldata", "nome": "Gráfica Asus GeForce® RTX 5070 Ti Prime OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1699.9, "estado": "Em stock"}]}, {"url": "https://www.globaldata.pt/grafica-pny-geforce-rtx-5070-ti-gaming-rgb-triple-fan-oc-16gb-gddr7-dlss4/VCG5070T16TFXXPB1O.html", "loja": "Globaldata", "nome": "Gráfica PNY GeForce® RTX 5070 Ti Gaming RGB Triple Fan OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1359.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-msi-geforce-rtx-5070-ti-ventus-3x-oc-16gb-gddr7-dlss4/912-V531-083.html", "loja": "Globaldata", "nome": "Gráfica MSI GeForce® RTX 5070 Ti VENTUS 3X OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1399.0, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-eagle-oc-ice-sff-16gb-gddr7-dlss4/9VN507TEOI-00-G10.html", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Eagle OC Ice SFF 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1599.0, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-eagle-oc-sff-16gb-gddr7-dlss4/9VN507TEO-00-G10.html", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Eagle OC SFF 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1384.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-windforce-3-16gb-gddr7-dlss4/GV-N507TWF3-16GD.html", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Windforce 3 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1339.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-asus-geforce-rtx-5070-ti-tuf-gaming-oc-16gb-gddr7-dlss4/90YV0MD0-M0NA00.html", "loja": "Globaldata", "nome": "Gráfica Asus GeForce® RTX 5070 Ti TUF Gaming OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1799.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-pny-geforce-rtx-5070-ti-gaming-argb-triple-fan-plus-oc-16gb-gddr7-dlss4/VCG5071T16TFXXPB1O.html", "loja": "Globaldata", "nome": "Gráfica PNY GeForce® RTX 5070 Ti Gaming ARGB Triple Fan Plus OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1399.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-zotac-geforce-rtx-5070-ti-solid-sff-oc-16gb-gddr7-dlss4/ZT-B50710J3-10P.html", "loja": "Globaldata", "nome": "Gráfica ZOTAC GeForce® RTX 5070 Ti Solid SFF OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1129.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-msi-geforce-rtx-5070-ti-gaming-trio-oc-16gb-gddr7-dlss4/912-V531-286.html", "loja": "Globaldata", "nome": "Gráfica MSI GeForce® RTX 5070 Ti GAMING TRIO OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1499.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-msi-geforce-rtx-5070-ti-gaming-trio-oc-plus-16gb-gddr7-dlss4/912-V531-056.html", "loja": "Globaldata", "nome": "Gráfica MSI GeForce® RTX 5070 Ti GAMING TRIO OC PLUS 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1169.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-pny-geforce-rtx-5070-ti-gaming-triple-fan-plus-oc-16gb-gddr7-dlss4/VCG5071T16TFXPB1-O.html", "loja": "Globaldata", "nome": "Gráfica PNY GeForce® RTX 5070 Ti Gaming Triple Fan Plus OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1349.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-asus-geforce-rtx-5070-ti-rog-strix-gaming-oc-16gb-gddr7-dlss4/90YV0M90-M0NA00.html", "loja": "Globaldata", "nome": "Gráfica Asus GeForce® RTX 5070 Ti ROG Strix Gaming OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1528.0, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-zotac-geforce-rtx-5070-ti-solid-oc-16gb-gddr7-dlss4/ZT-B50710J-10P.html", "loja": "Globaldata", "nome": "Gráfica ZOTAC GeForce® RTX 5070 Ti Solid OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1149.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-gaming-oc-16gb-gddr7-dlss4/9VN507TGO-00-G10.html", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Gaming OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1419.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-windforce-oc-sff-16gb-gddr7-dlss4/9VN507TWO-00-G10.html", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Windforce OC SFF 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1364.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-aero-oc-16gb-gddr7-dlss4/9VN507TAO-00-G10.html", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Aero OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1434.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-windforce-oc-v2-16gb-gddr7-dlss4/GV-N507TWF3OCV2-16.html", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Windforce OC V2 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1364.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-zotac-geforce-rtx-5070-ti-solid-sff-16gb-gddr7-dlss4/ZT-B50710D3-10P.html", "loja": "Globaldata", "nome": "Gráfica ZOTAC GeForce® RTX 5070 Ti Solid SFF 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1049.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-asus-geforce-rtx-5070-ti-tuf-gaming-16gb-gddr7-dlss4/90YV0MD1-M0NA00.html", "loja": "Globaldata", "nome": "Gráfica Asus GeForce® RTX 5070 Ti TUF Gaming 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1443.0, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-pny-geforce-rtx-5070-ti-gaming-triple-fan-oc-16gb-gddr7-dlss4/VCG5070T16TFXPB1-O.html", "loja": "Globaldata", "nome": "Gráfica PNY GeForce® RTX 5070 Ti Gaming Triple Fan OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1419.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-zotac-geforce-rtx-5070-ti-amp-extreme-infinity-16gb-gddr7-dlss4/ZTB50710B-10P.html", "loja": "Globaldata", "nome": "Gráfica ZOTAC GeForce® RTX 5070 Ti AMP Extreme Infinity 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1189.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-aorus-master-16gb-gddr7-dlss4/9VN507TAM-00-G10.html", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Aorus Master 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1454.9, "estado": "Esgotado"}]}]};
+const DADOS = {"hoje": "2026-11-16", "produtos": ["RTX 5070 Ti", "Razer Naga V3 Pro", "Corsair Scimitar Elite Wireless"], "series": [{"url": "https://www.globaldata.pt/grafica-asus-geforce-rtx-5070-ti-prime-oc-16gb-gddr7-dlss4/90YV0MF0-M0NA00.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Asus GeForce® RTX 5070 Ti Prime OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1699.9, "estado": "Em stock"}]}, {"url": "https://www.globaldata.pt/grafica-pny-geforce-rtx-5070-ti-gaming-rgb-triple-fan-oc-16gb-gddr7-dlss4/VCG5070T16TFXXPB1O.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica PNY GeForce® RTX 5070 Ti Gaming RGB Triple Fan OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1359.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-msi-geforce-rtx-5070-ti-ventus-3x-oc-16gb-gddr7-dlss4/912-V531-083.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica MSI GeForce® RTX 5070 Ti VENTUS 3X OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1399.0, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-eagle-oc-ice-sff-16gb-gddr7-dlss4/9VN507TEOI-00-G10.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Eagle OC Ice SFF 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1599.0, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-eagle-oc-sff-16gb-gddr7-dlss4/9VN507TEO-00-G10.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Eagle OC SFF 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1384.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-windforce-3-16gb-gddr7-dlss4/GV-N507TWF3-16GD.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Windforce 3 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1339.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-asus-geforce-rtx-5070-ti-tuf-gaming-oc-16gb-gddr7-dlss4/90YV0MD0-M0NA00.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Asus GeForce® RTX 5070 Ti TUF Gaming OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1799.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-pny-geforce-rtx-5070-ti-gaming-argb-triple-fan-plus-oc-16gb-gddr7-dlss4/VCG5071T16TFXXPB1O.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica PNY GeForce® RTX 5070 Ti Gaming ARGB Triple Fan Plus OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1399.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-zotac-geforce-rtx-5070-ti-solid-sff-oc-16gb-gddr7-dlss4/ZT-B50710J3-10P.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica ZOTAC GeForce® RTX 5070 Ti Solid SFF OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1129.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-msi-geforce-rtx-5070-ti-gaming-trio-oc-16gb-gddr7-dlss4/912-V531-286.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica MSI GeForce® RTX 5070 Ti GAMING TRIO OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1499.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-msi-geforce-rtx-5070-ti-gaming-trio-oc-plus-16gb-gddr7-dlss4/912-V531-056.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica MSI GeForce® RTX 5070 Ti GAMING TRIO OC PLUS 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1169.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-pny-geforce-rtx-5070-ti-gaming-triple-fan-plus-oc-16gb-gddr7-dlss4/VCG5071T16TFXPB1-O.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica PNY GeForce® RTX 5070 Ti Gaming Triple Fan Plus OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1349.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-asus-geforce-rtx-5070-ti-rog-strix-gaming-oc-16gb-gddr7-dlss4/90YV0M90-M0NA00.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Asus GeForce® RTX 5070 Ti ROG Strix Gaming OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1528.0, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-zotac-geforce-rtx-5070-ti-solid-oc-16gb-gddr7-dlss4/ZT-B50710J-10P.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica ZOTAC GeForce® RTX 5070 Ti Solid OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1149.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-gaming-oc-16gb-gddr7-dlss4/9VN507TGO-00-G10.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Gaming OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1419.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-windforce-oc-sff-16gb-gddr7-dlss4/9VN507TWO-00-G10.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Windforce OC SFF 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1364.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-aero-oc-16gb-gddr7-dlss4/9VN507TAO-00-G10.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Aero OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1434.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-windforce-oc-v2-16gb-gddr7-dlss4/GV-N507TWF3OCV2-16.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Windforce OC V2 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1364.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-zotac-geforce-rtx-5070-ti-solid-sff-16gb-gddr7-dlss4/ZT-B50710D3-10P.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica ZOTAC GeForce® RTX 5070 Ti Solid SFF 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1049.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-asus-geforce-rtx-5070-ti-tuf-gaming-16gb-gddr7-dlss4/90YV0MD1-M0NA00.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Asus GeForce® RTX 5070 Ti TUF Gaming 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1443.0, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-pny-geforce-rtx-5070-ti-gaming-triple-fan-oc-16gb-gddr7-dlss4/VCG5070T16TFXPB1-O.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica PNY GeForce® RTX 5070 Ti Gaming Triple Fan OC 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1419.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-zotac-geforce-rtx-5070-ti-amp-extreme-infinity-16gb-gddr7-dlss4/ZTB50710B-10P.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica ZOTAC GeForce® RTX 5070 Ti AMP Extreme Infinity 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1189.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/grafica-gigabyte-geforce-rtx-5070-ti-aorus-master-16gb-gddr7-dlss4/9VN507TAM-00-G10.html", "produto": "RTX 5070 Ti", "loja": "Globaldata", "nome": "Gráfica Gigabyte GeForce® RTX 5070 Ti Aorus Master 16GB GDDR7 DLSS4", "pontos": [{"data": "2026-11-16", "preco": 1454.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/rato-razer-naga-v3-pro-50000dpi-wireless-bluetooth-preto/RZ01-05660100-R3G1.html", "produto": "Razer Naga V3 Pro", "loja": "Globaldata", "nome": "Rato Razer Naga V3 Pro 50000DPI Wireless/Bluetooth Preto", "pontos": [{"data": "2026-11-16", "preco": 180.9, "estado": "Por encomenda"}]}, {"url": "https://www.globaldata.pt/rato-corsair-scimitar-elite-gaming-wireless-se-mmo-33000dpi-gun-metal/CH-9314014-WW.html", "produto": "Corsair Scimitar Elite Wireless", "loja": "Globaldata", "nome": "Rato Corsair Scimitar Elite Gaming Wireless SE MMO 33000DPI Gun Metal", "pontos": [{"data": "2026-11-16", "preco": 129.9, "estado": "Esgotado"}]}, {"url": "https://www.globaldata.pt/rato-corsair-scimitar-elite-rgb-moba-mmo-wireless-preto/CH-9314311-EU.html", "produto": "Corsair Scimitar Elite Wireless", "loja": "Globaldata", "nome": "Rato Corsair Scimitar Elite RGB MOBA/MMO Wireless Preto", "pontos": [{"data": "2026-11-16", "preco": 139.9, "estado": "Esgotado"}]}]};
 const eur = v => v.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const hoje = DADOS.hoje;
-
-const atuais = DADOS.series
-  .map(s => ({ ...s, ultimo: s.pontos[s.pontos.length - 1] }))
-  .filter(s => s.ultimo.data === hoje);
 const CLASSE = { "Em stock": "e-stock", "Esgotado": "e-esgotado", "Por encomenda": "e-encomenda", "Pré-venda": "e-prevenda" };
 const classe = e => CLASSE[e] || "e-desconhecido";
-const todas = atuais.sort((a, b) => b.ultimo.preco - a.ultimo.preco);
-const emStock = todas.filter(s => s.ultimo.estado === "Em stock");
-
 const dataPt = d => new Date(d + "T12:00:00").toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" });
-document.getElementById("resumo").textContent = `Atualizado a ${dataPt(hoje)}. ${todas.length} placas encontradas, ${emStock.length} em stock` +
-  (emStock.length ? `; a mais barata em stock custa ${eur(emStock[emStock.length - 1].ultimo.preco)}.` : ".");
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 
-const tbody = document.getElementById("linhas");
-if (!todas.length) tbody.innerHTML = `<tr><td colspan="6" class="vazio">Nenhuma placa encontrada nesta leitura.</td></tr>`;
-for (const s of todas) {
-  const ant = s.pontos.length > 1 ? s.pontos[s.pontos.length - 2].preco : null;
-  const dif = ant === null ? null : s.ultimo.preco - ant;
-  const minimo = Math.min(...s.pontos.map(p => p.preco));
-  const tr = document.createElement("tr");
-  if (s.ultimo.estado === "Esgotado") tr.className = "esgotado";
-  tr.innerHTML = `
-    <td><a href="${s.url}" target="_blank" rel="noopener"></a></td>
-    <td>${s.loja}</td>
-    <td><span class="estado ${classe(s.ultimo.estado)}">${s.ultimo.estado}</span></td>
-    <td class="num preco">${eur(s.ultimo.preco)}</td>
-    <td class="num ${dif < 0 ? "desce" : dif > 0 ? "sobe" : ""}">${dif === null ? "Primeira leitura" : dif === 0 ? "Igual" : (dif > 0 ? "+" : "−") + eur(Math.abs(dif))}</td>
-    <td class="num">${eur(minimo)}</td>`;
-  tr.querySelector("a").textContent = s.nome;
-  tbody.appendChild(tr);
-}
+document.getElementById("resumo").textContent = `Atualizado a ${dataPt(hoje)}.`;
+const raiz = document.getElementById("produtos");
 
-const grelha = document.getElementById("graficos");
-for (const s of todas) {
-  const fig = document.createElement("figure");
-  fig.innerHTML = `<figcaption></figcaption><div class="grafico"><canvas></canvas></div>`;
-  fig.querySelector("figcaption").innerHTML = `<span>${s.loja} · <span class="estado ${classe(s.ultimo.estado)}">${s.ultimo.estado}</span></span>`;
-  fig.querySelector("figcaption").prepend(document.createTextNode(s.nome));
-  grelha.appendChild(fig);
-  new Chart(fig.querySelector("canvas"), {
-    type: "line",
-    data: {
-      labels: s.pontos.map(p => new Date(p.data + "T12:00:00").toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" })),
-      datasets: [{ data: s.pontos.map(p => p.preco), borderColor: css("--acento"), backgroundColor: css("--acento"),
-        borderWidth: 2, stepped: true,
-        pointRadius: s.pontos.map(p => p.estado === "Em stock" ? (s.pontos.length > 30 ? 0 : 3) : 3),
-        pointBackgroundColor: s.pontos.map(p => p.estado === "Em stock" ? css("--acento") : css("--papel")) }]
-    },
-    options: {
-      maintainAspectRatio: false, animation: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${eur(c.parsed.y)} (${s.pontos[c.dataIndex].estado})` } } },
-      scales: {
-        x: { ticks: { color: css("--suave"), maxTicksLimit: 6 }, grid: { display: false } },
-        y: { ticks: { color: css("--suave"), callback: v => eur(v) }, grid: { color: css("--linha") } }
+const produtos = [...DADOS.produtos, ...new Set(DADOS.series.map(s => s.produto).filter(p => !DADOS.produtos.includes(p)))];
+for (const produto of produtos) {
+  const todas = DADOS.series
+    .filter(s => s.produto === produto)
+    .map(s => ({ ...s, ultimo: s.pontos[s.pontos.length - 1] }))
+    .filter(s => s.ultimo.data === hoje)
+    .sort((a, b) => b.ultimo.preco - a.ultimo.preco);
+  const emStock = todas.filter(s => s.ultimo.estado === "Em stock");
+
+  const sec = el("section");
+  sec.append(el("h2", "produto", produto));
+  sec.append(el("p", "resumo", !todas.length ? "Não encontrado na leitura de hoje."
+    : `${todas.length} ${todas.length === 1 ? "artigo" : "artigos"}, ${emStock.length} em stock` +
+      (emStock.length ? `; o mais barato em stock custa ${eur(emStock[emStock.length - 1].ultimo.preco)}.` : ".")));
+  raiz.append(sec);
+  if (!todas.length) continue;
+
+  sec.append(el("h3", null, "Hoje, do mais caro ao mais barato"));
+  const wrap = el("div", "tabela");
+  wrap.innerHTML = `<table><thead><tr><th>Artigo</th><th>Estado</th><th class="num">Preço</th><th class="num">Desde a última leitura</th><th class="num">Mínimo registado</th></tr></thead><tbody></tbody></table>`;
+  const tbody = wrap.querySelector("tbody");
+  for (const s of todas) {
+    const ant = s.pontos.length > 1 ? s.pontos[s.pontos.length - 2].preco : null;
+    const dif = ant === null ? null : s.ultimo.preco - ant;
+    const minimo = Math.min(...s.pontos.map(p => p.preco));
+    const tr = document.createElement("tr");
+    if (s.ultimo.estado === "Esgotado") tr.className = "esgotado";
+    tr.innerHTML = `
+      <td><a href="${s.url}" target="_blank" rel="noopener"></a></td>
+      <td><span class="estado ${classe(s.ultimo.estado)}">${s.ultimo.estado}</span></td>
+      <td class="num preco">${eur(s.ultimo.preco)}</td>
+      <td class="num ${dif < 0 ? "desce" : dif > 0 ? "sobe" : ""}">${dif === null ? "Primeira leitura" : dif === 0 ? "Igual" : (dif > 0 ? "+" : "−") + eur(Math.abs(dif))}</td>
+      <td class="num">${eur(minimo)}</td>`;
+    tr.querySelector("a").textContent = s.nome;
+    tbody.append(tr);
+  }
+  sec.append(wrap);
+
+  sec.append(el("h3", null, "Evolução do preço"));
+  const grelha = el("div", "grelha");
+  sec.append(grelha);
+  for (const s of todas) {
+    const fig = document.createElement("figure");
+    fig.innerHTML = `<figcaption></figcaption><div class="grafico"><canvas></canvas></div>`;
+    fig.querySelector("figcaption").innerHTML = `<span><span class="estado ${classe(s.ultimo.estado)}">${s.ultimo.estado}</span></span>`;
+    fig.querySelector("figcaption").prepend(document.createTextNode(s.nome));
+    grelha.append(fig);
+    if (typeof Chart === "undefined") continue;
+    new Chart(fig.querySelector("canvas"), {
+      type: "line",
+      data: {
+        labels: s.pontos.map(p => new Date(p.data + "T12:00:00").toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" })),
+        datasets: [{ data: s.pontos.map(p => p.preco), borderColor: css("--acento"), backgroundColor: css("--acento"),
+          borderWidth: 2, stepped: true,
+          pointRadius: s.pontos.map(p => p.estado === "Em stock" ? (s.pontos.length > 30 ? 0 : 3) : 3),
+          pointBackgroundColor: s.pontos.map(p => p.estado === "Em stock" ? css("--acento") : css("--papel")) }]
+      },
+      options: {
+        maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${eur(c.parsed.y)} (${s.pontos[c.dataIndex].estado})` } } },
+        scales: {
+          x: { ticks: { color: css("--suave"), maxTicksLimit: 6 }, grid: { display: false } },
+          y: { ticks: { color: css("--suave"), callback: v => eur(v) }, grid: { color: css("--linha") } }
+        }
       }
-    }
-  });
+    });
+  }
 }
-
 </script>
 </body>
 </html>
