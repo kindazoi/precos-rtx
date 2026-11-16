@@ -23,19 +23,25 @@ import requests
 
 # ---------------------------------------------------------------- configuração
 LOJAS = {
-    "Globaldata": os.getenv(
-        "GLOBALDATA_URL",
-        "https://www.globaldata.pt/componentes/placas-graficas/placas-graficas-nvidia/geforce-rtx-5070-ti?sz=96",
-    ),
-    # Confirma este endereço: pesquisa "rtx 5070 ti" no site e copia o URL da página de resultados.
-            "Novo Atalho": os.getenv("NOVOATALHO_URL") or "https://www.novoatalho.pt/search?q=placa%20gr%C3%A1fica%20geforce%20rtx%205070%20ti",
+    "Globaldata": os.getenv("GLOBALDATA_URL")
+    or "https://www.globaldata.pt/componentes/placas-graficas/placas-graficas-nvidia/geforce-rtx-5070-ti?sz=96",
+    "Novo Atalho": os.getenv("NOVOATALHO_URL")
+    or "https://www.novoatalho.pt/search?q=placa%20gr%C3%A1fica%20geforce%20rtx%205070%20ti",
 }
 PRECO_MINIMO = 300.0  # ignora valores tipo "poupa 50 €" ou portes
 EXCLUIR = re.compile(r"port[áa]til|laptop|notebook|computador|desktop|\bpc\b|mini.?pc|bundle|pack|ryzen|core i\d|core ultra|\bssd\b|\bram\b|\bddr[45]\b|windows|\d{2}(\.\d)?\"", re.I)
+
+# Estado de cada placa, lido do texto do cartão do produto. A primeira regra que bater ganha.
+ESTADOS = [
+    ("Esgotado", r"esgotad|sem stock|fora de stock|indispon[íi]vel"),
+    ("Pré-venda", r"pr[ée][- ]?(venda|reserva)"),
+    ("Por encomenda", r"por encomenda|sob consulta|\d+\s*(a\s*\d+\s*)?dias"),
+    ("Em stock", r"em stock|dispon[íi]vel|previsto hoje|previsto amanh[ãa]|envio imediato"),
+]
 DADOS = Path("data/precos.csv")
 RELATORIO = Path("docs/index.html")
 MODELO_HTML = Path(__file__).with_name("relatorio_modelo.html")
-CAMPOS = ["data", "loja", "url", "nome", "preco", "disponivel"]
+CAMPOS = ["data", "loja", "url", "nome", "preco", "estado"]
 
 # Corre dentro da página: encontra links com "5070 Ti", sobe até ao "cartão" do produto
 # (o maior elemento que só contém esse produto) e lê os preços e o texto de stock.
@@ -70,7 +76,7 @@ EXTRAIR_JS = r"""
     url: p.url,
     nome: p.nome,
     precos: [...p.texto.matchAll(precoRe)].map(m => (m[1] || m[3]) + ',' + (m[2] || m[4])),
-    esgotado: /esgotad|sem stock|indispon[íi]vel|fora de stock/i.test(p.texto),
+    texto: p.texto.slice(0, 2000),
   }));
 }
 """
@@ -79,6 +85,13 @@ EXTRAIR_JS = r"""
 # ---------------------------------------------------------------- recolha
 def para_float(s: str) -> float:
     return float(re.sub(r"[\s\u00a0.]", "", s).replace(",", "."))
+
+
+def ler_estado(texto: str) -> str:
+    for estado, padrao in ESTADOS:
+        if re.search(padrao, texto, re.I):
+            return estado
+    return "Desconhecido"
 
 
 def normalizar(loja, brutos):
@@ -94,7 +107,7 @@ def normalizar(loja, brutos):
             "url": b["url"],
             "nome": b["nome"][:160],
             "preco": min(precos),  # com desconto, o preço riscado é o maior
-            "disponivel": not b["esgotado"],
+            "estado": ler_estado(b["texto"]),
         })
     return itens
 
@@ -139,8 +152,13 @@ def ler_historico():
     if not DADOS.exists():
         return []
     with DADOS.open(newline="", encoding="utf-8") as f:
-        return [{**r, "preco": float(r["preco"]), "disponivel": r["disponivel"] == "1"}
-                for r in csv.DictReader(f)]
+        linhas = []
+        for r in csv.DictReader(f):
+            # aceita o formato antigo, que tinha a coluna "disponivel" (1/0)
+            estado = r.get("estado") or ("Em stock" if r.get("disponivel") == "1" else "Esgotado")
+            linhas.append({"data": r["data"], "loja": r["loja"], "url": r["url"], "nome": r["nome"],
+                           "preco": float(r["preco"]), "estado": estado})
+        return linhas
 
 
 def gravar_historico(hist):
@@ -150,15 +168,12 @@ def gravar_historico(hist):
         w = csv.DictWriter(f, fieldnames=CAMPOS)
         w.writeheader()
         for r in hist:
-            w.writerow({**{k: r[k] for k in CAMPOS}, "preco": f'{r["preco"]:.2f}',
-                        "disponivel": "1" if r["disponivel"] else "0"})
+            w.writerow({**{k: r[k] for k in CAMPOS}, "preco": f'{r["preco"]:.2f}'})
 
 
 def detetar_descidas(hist, hoje, atuais):
     descidas = []
     for a in atuais:
-        if not a["disponivel"]:
-            continue
         anteriores = [r for r in hist if r["url"] == a["url"] and r["data"] < hoje]
         if not anteriores:
             continue
@@ -174,7 +189,7 @@ def gerar_relatorio(hist, hoje):
     for r in sorted(hist, key=lambda r: r["data"]):
         s = series.setdefault(r["url"], {"url": r["url"], "loja": r["loja"], "nome": r["nome"], "pontos": []})
         s["nome"] = r["nome"]
-        s["pontos"].append({"data": r["data"], "preco": r["preco"], "disponivel": r["disponivel"]})
+        s["pontos"].append({"data": r["data"], "preco": r["preco"], "estado": r["estado"]})
     dados = {"hoje": hoje, "series": list(series.values())}
     js = json.dumps(dados, ensure_ascii=False).replace("</", "<\\/")
     RELATORIO.parent.mkdir(parents=True, exist_ok=True)
@@ -212,11 +227,11 @@ def enviar_whatsapp(texto):
 
 def alertar(descidas):
     link = os.getenv("REPORT_URL", "")
-    linhas = [f'{d["nome"]} ({d["loja"]}): {eur(d["anterior"])} → {eur(d["preco"])} '
+    linhas = [f'{d["nome"]} ({d["loja"]}, {d["estado"]}): {eur(d["anterior"])} → {eur(d["preco"])} '
               f'(-{eur(d["anterior"] - d["preco"])})\n{d["url"]}' for d in descidas]
     texto = "Baixaram de preço:\n\n" + "\n\n".join(linhas) + (f"\n\nRelatório: {link}" if link else "")
     itens = "".join(
-        f'<li><a href="{d["url"]}">{d["nome"]}</a> ({d["loja"]})<br>'
+        f'<li><a href="{d["url"]}">{d["nome"]}</a> ({d["loja"]}, {d["estado"]})<br>'
         f'<s>{eur(d["anterior"])}</s> → <b>{eur(d["preco"])}</b></li>' for d in descidas)
     corpo = f"<p>Baixaram de preço:</p><ul>{itens}</ul>" + (f'<p><a href="{link}">Ver relatório</a></p>' if link else "")
     assunto = f"RTX 5070 Ti: {len(descidas)} preço(s) baixaram"
@@ -244,8 +259,8 @@ def main():
     gravar_historico(hist)
     gerar_relatorio(hist, hoje)
 
-    for a in sorted((a for a in atuais if a["disponivel"]), key=lambda a: -a["preco"]):
-        print(f'{eur(a["preco"]):>12}  {a["loja"]:<12} {a["nome"]}')
+    for a in sorted(atuais, key=lambda a: -a["preco"]):
+        print(f'{eur(a["preco"]):>12}  {a["loja"]:<12} {a["estado"]:<14} {a["nome"]}')
 
     if descidas and os.getenv("SEM_ALERTAS") != "1":
         alertar(descidas)
