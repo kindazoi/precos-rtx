@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Rastreador diário de preços das RTX 5070 Ti na Globaldata e na Novo Atalho.
+"""Rastreador diário de preços na Globaldata.
 
 Cada execução:
-  1. abre as páginas das lojas num browser headless (Playwright);
-  2. extrai nome, preço, disponibilidade e link de cada placa;
+  1. abre a página de cada produto seguido num browser headless (Playwright);
+  2. extrai nome, preço, estado (em stock, esgotado, ...) e link de cada variante;
   3. junta tudo ao histórico em data/precos.csv;
-  4. gera o relatório docs/index.html (lista + gráfico por placa);
+  4. gera o relatório docs/index.html (uma secção por produto, com tabela e gráficos);
   5. envia alerta por email e/ou WhatsApp se algum preço baixou.
+
+Para seguir outro produto, acrescenta uma entrada à lista PRODUTOS.
 """
 import asyncio
 import csv
@@ -22,16 +24,38 @@ from pathlib import Path
 import requests
 
 # ---------------------------------------------------------------- configuração
-LOJAS = {
-    "Globaldata": os.getenv("GLOBALDATA_URL")
-    or "https://www.globaldata.pt/componentes/placas-graficas/placas-graficas-nvidia/geforce-rtx-5070-ti?sz=96",
-    "Novo Atalho": os.getenv("NOVOATALHO_URL")
-    or "https://www.novoatalho.pt/search?q=placa%20gr%C3%A1fica%20geforce%20rtx%205070%20ti",
-}
-PRECO_MINIMO = 300.0  # ignora valores tipo "poupa 50 €" ou portes
-EXCLUIR = re.compile(r"port[áa]til|laptop|notebook|computador|desktop|\bpc\b|mini.?pc|bundle|pack|ryzen|core i\d|core ultra|\bssd\b|\bram\b|\bddr[45]\b|windows|\d{2}(\.\d)?\"", re.I)
+# Para cada produto:
+#   url      página da Globaldata onde ele aparece (categoria ou pesquisa; "sz=96" mostra 96 por página)
+#   incluir  o nome do artigo tem de conter isto
+#   excluir  artigos cujo nome contenha isto são ignorados (portáteis, acessórios, ...)
+#   minimo   preços abaixo deste valor são ignorados (ex.: "poupa 50 €")
+ACESSORIOS = r"skate|grip|dock|cabo|capa|bolsa|teclas|substitui|kit|bundle|pack"
+PRODUTOS = [
+    {
+        "produto": "RTX 5070 Ti",
+        "url": "https://www.globaldata.pt/componentes/placas-graficas/placas-graficas-nvidia/geforce-rtx-5070-ti?sz=96",
+        "incluir": r"5070\s*-?\s*ti",
+        "excluir": r"port[áa]til|laptop|notebook|computador|desktop|\bpc\b|mini.?pc|bundle|pack|ryzen|core i\d"
+                   r"|core ultra|\bssd\b|\bram\b|\bddr[45]\b|windows|\d{2}(\.\d)?\"",
+        "minimo": 300,
+    },
+    {
+        "produto": "Razer Naga V3 Pro",
+        "url": "https://www.globaldata.pt/search?q=razer+naga+v3+pro&srule=relevancia&sz=96",
+        "incluir": r"naga\s*v3\s*pro",
+        "excluir": ACESSORIOS,
+        "minimo": 40,
+    },
+    {
+        "produto": "Corsair Scimitar Elite Wireless",
+        "url": "https://www.globaldata.pt/search?q=corsair+scimitar+elite+wireless&srule=relevancia&sz=96",
+        "incluir": r"scimitar.{0,20}elite.{0,30}wireless|scimitar.{0,20}wireless.{0,30}elite",
+        "excluir": ACESSORIOS,
+        "minimo": 40,
+    },
+]
 
-# Estado de cada placa, lido do texto do cartão do produto. A primeira regra que bater ganha.
+# Estado de cada artigo, lido do texto do cartão do produto. A primeira regra que bater ganha.
 ESTADOS = [
     ("Esgotado", r"esgotad|sem stock|fora de stock|indispon[íi]vel"),
     ("Pré-venda", r"pr[ée][- ]?(venda|reserva)"),
@@ -41,14 +65,15 @@ ESTADOS = [
 DADOS = Path("data/precos.csv")
 RELATORIO = Path("docs/index.html")
 MODELO_HTML = Path(__file__).with_name("relatorio_modelo.html")
-CAMPOS = ["data", "loja", "url", "nome", "preco", "estado"]
+CAMPOS = ["data", "produto", "loja", "url", "nome", "preco", "estado"]
+LOJA = "Globaldata"
 
-# Corre dentro da página: encontra links com "5070 Ti", sobe até ao "cartão" do produto
+# Corre dentro da página: encontra links cujo nome bate com "alvo", sobe até ao "cartão" do produto
 # (o maior elemento que só contém esse produto) e lê os preços e o texto de stock.
 EXTRAIR_JS = r"""
-() => {
-  const alvo = /5070\s*-?\s*ti/i;
-  const precoRe = /(\d{1,3}(?:[.\s\u00a0\u202f]\d{3})*|\d+)[,.](\d{2})\s*€|€\s*(\d{1,3}(?:[.\s\u00a0\u202f]\d{3})*|\d+)[,.](\d{2})/g;
+(fonte) => {
+  const alvo = new RegExp(fonte, 'i');
+  const precoRe = /(\d{1,3}(?:[.\s  ]\d{3})*|\d+)[,.](\d{2})\s*€|€\s*(\d{1,3}(?:[.\s  ]\d{3})*|\d+)[,.](\d{2})/g;
   const limpa = h => h.split('#')[0].split('?')[0];
   const nomeDe = a => {
     const cands = [a.getAttribute('title'), a.getAttribute('aria-label'), a.innerText, a.textContent,
@@ -59,7 +84,7 @@ EXTRAIR_JS = r"""
   const prod = new Map();
   for (const a of document.querySelectorAll('a[href]')) {
     const nome = nomeDe(a);
-    if (!alvo.test(nome)) continue;
+    if (!nome) continue;
     const url = limpa(a.href);
     const p = prod.get(url) || { url, nome: '', texto: '' };
     if (nome.length > p.nome.length) p.nome = nome;
@@ -68,7 +93,7 @@ EXTRAIR_JS = r"""
       const pai = el.parentElement;
       if (!pai) break;
       const urls = new Set([...pai.querySelectorAll('a[href]')]
-        .filter(x => alvo.test(nomeDe(x))).map(x => limpa(x.href)));
+        .filter(x => nomeDe(x)).map(x => limpa(x.href)));
       if (urls.size > 1) break;
       el = pai;
     }
@@ -99,16 +124,17 @@ def ler_estado(texto: str) -> str:
     return "Desconhecido"
 
 
-def normalizar(loja, brutos):
+def normalizar(cfg, brutos):
     itens = []
     for b in brutos:
-        if EXCLUIR.search(b["nome"]):
+        if re.search(cfg["excluir"], b["nome"], re.I):
             continue
-        precos = [v for v in map(para_float, b["precos"]) if v >= PRECO_MINIMO]
+        precos = [v for v in map(para_float, b["precos"]) if v >= cfg["minimo"]]
         if not precos:
             continue
         itens.append({
-            "loja": loja,
+            "produto": cfg["produto"],
+            "loja": LOJA,
             "url": b["url"],
             "nome": b["nome"][:160],
             "preco": min(precos),  # com desconto, o preço riscado é o maior
@@ -117,32 +143,29 @@ def normalizar(loja, brutos):
     return itens
 
 
-async def diagnosticar(page, loja, brutos):
+async def diagnosticar(page, cfg, brutos):
     """Guarda uma captura e o HTML da página em debug/ e mostra pistas no registo."""
     pasta = Path("debug"); pasta.mkdir(exist_ok=True)
-    nome = re.sub(r"\W+", "_", loja.lower())
+    nome = re.sub(r"\W+", "_", cfg["produto"].lower())
     try:
         await page.screenshot(path=str(pasta / f"{nome}.png"), full_page=True)
         (pasta / f"{nome}.html").write_text(await page.content(), encoding="utf-8")
         texto = await page.evaluate("() => document.body ? document.body.innerText : ''")
     except Exception as e:  # noqa: BLE001
-        print(f"[{loja}] diagnóstico falhou: {e}")
+        print(f"    diagnóstico falhou: {e}")
         return
-    print(f"[{loja}] diagnóstico:")
     print(f"    título da página: {await page.title()!r}")
     print(f"    endereço final:   {page.url}")
-    print(f"    vezes que '5070 Ti' aparece no texto: {len(re.findall(r'5070\s*-?\s*ti', texto, re.I))}")
-    print(f"    produtos lidos antes dos filtros: {len(brutos)}")
+    print(f"    artigos lidos antes dos filtros: {len(brutos)}")
     for b in brutos[:5]:
         print(f"      - {b['nome'][:80]!r}  preços={b['precos'][:3]}")
     print(f"    início do texto da página: {texto[:300]!r}")
-    print("    A captura e o HTML ficam no artefacto 'diagnostico' desta execução.")
 
 
 async def recolher():
     from playwright.async_api import async_playwright
 
-    resultados, falhas = [], []
+    resultados, vazios = [], []
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         ctx = await browser.new_context(
@@ -150,34 +173,35 @@ async def recolher():
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
         )
-        for loja, url in LOJAS.items():
+        for cfg in PRODUTOS:
             page = await ctx.new_page()
             try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=60_000)
-                try:  # espera até aparecer texto com "5070 Ti" (resultados carregados por JavaScript)
+                await page.goto(cfg["url"], wait_until="domcontentloaded", timeout=60_000)
+                try:  # espera até aparecer o produto (resultados carregados por JavaScript)
                     await page.wait_for_function(
-                        "() => /5070\\s*-?\\s*ti/i.test(document.body ? document.body.innerText : '')",
-                        timeout=25_000)
+                        "(f) => new RegExp(f, 'i').test(document.body ? document.body.innerText : '')",
+                        arg=cfg["incluir"], timeout=25_000)
                 except Exception:  # noqa: BLE001
                     pass
-                await page.wait_for_timeout(3000)
+                await page.wait_for_timeout(2000)
                 for _ in range(6):  # força o carregamento de produtos com lazy loading
                     await page.mouse.wheel(0, 4000)
                     await page.wait_for_timeout(800)
-                brutos = await page.evaluate(EXTRAIR_JS)
-                itens = normalizar(loja, brutos)
-                print(f"[{loja}] {len(itens)} placas encontradas")
+                brutos = await page.evaluate(EXTRAIR_JS, cfg["incluir"])
+                itens = normalizar(cfg, brutos)
+                print(f"[{cfg['produto']}] {len(itens)} artigos encontrados")
                 if not itens:
-                    await diagnosticar(page, loja, brutos)
-                    falhas.append(loja)
+                    print(f"[{cfg['produto']}] AVISO: nada encontrado. Pode estar fora do catálogo ou o site mudou.")
+                    await diagnosticar(page, cfg, brutos)
+                    vazios.append(cfg["produto"])
                 resultados.extend(itens)
             except Exception as e:  # noqa: BLE001
-                print(f"[{loja}] erro ao abrir {url}: {e}")
-                falhas.append(loja)
+                print(f"[{cfg['produto']}] erro ao abrir {cfg['url']}: {e}")
+                vazios.append(cfg["produto"])
             finally:
                 await page.close()
         await browser.close()
-    return resultados, falhas
+    return resultados, vazios
 
 
 # ---------------------------------------------------------------- histórico
@@ -187,16 +211,18 @@ def ler_historico():
     with DADOS.open(newline="", encoding="utf-8") as f:
         linhas = []
         for r in csv.DictReader(f):
-            # aceita o formato antigo, que tinha a coluna "disponivel" (1/0)
+            if r.get("loja") and r["loja"] != LOJA:
+                continue  # ignora lojas que deixaram de ser seguidas
+            # aceita formatos antigos: sem "produto" (só RTX) e com "disponivel" (1/0) em vez de "estado"
             estado = r.get("estado") or ("Em stock" if r.get("disponivel") == "1" else "Esgotado")
-            linhas.append({"data": r["data"], "loja": r["loja"], "url": r["url"], "nome": r["nome"],
-                           "preco": float(r["preco"]), "estado": estado})
+            linhas.append({"data": r["data"], "produto": r.get("produto") or "RTX 5070 Ti", "loja": LOJA,
+                           "url": r["url"], "nome": r["nome"], "preco": float(r["preco"]), "estado": estado})
         return linhas
 
 
 def gravar_historico(hist):
     DADOS.parent.mkdir(parents=True, exist_ok=True)
-    hist = sorted(hist, key=lambda r: (r["data"], r["loja"], r["nome"]))
+    hist = sorted(hist, key=lambda r: (r["data"], r["produto"], r["nome"]))
     with DADOS.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=CAMPOS)
         w.writeheader()
@@ -220,10 +246,11 @@ def detetar_descidas(hist, hoje, atuais):
 def gerar_relatorio(hist, hoje):
     series = {}
     for r in sorted(hist, key=lambda r: r["data"]):
-        s = series.setdefault(r["url"], {"url": r["url"], "loja": r["loja"], "nome": r["nome"], "pontos": []})
+        s = series.setdefault(r["url"], {"url": r["url"], "produto": r["produto"], "loja": r["loja"],
+                                         "nome": r["nome"], "pontos": []})
         s["nome"] = r["nome"]
         s["pontos"].append({"data": r["data"], "preco": r["preco"], "estado": r["estado"]})
-    dados = {"hoje": hoje, "series": list(series.values())}
+    dados = {"hoje": hoje, "produtos": [c["produto"] for c in PRODUTOS], "series": list(series.values())}
     js = json.dumps(dados, ensure_ascii=False).replace("</", "<\\/")
     RELATORIO.parent.mkdir(parents=True, exist_ok=True)
     RELATORIO.write_text(MODELO_HTML.read_text(encoding="utf-8").replace("__DADOS__", js), encoding="utf-8")
@@ -260,14 +287,15 @@ def enviar_whatsapp(texto):
 
 def alertar(descidas):
     link = os.getenv("REPORT_URL", "")
-    linhas = [f'{d["nome"]} ({d["loja"]}, {d["estado"]}): {eur(d["anterior"])} → {eur(d["preco"])} '
+    linhas = [f'{d["nome"]} ({d["estado"]}): {eur(d["anterior"])} → {eur(d["preco"])} '
               f'(-{eur(d["anterior"] - d["preco"])})\n{d["url"]}' for d in descidas]
-    texto = "Baixaram de preço:\n\n" + "\n\n".join(linhas) + (f"\n\nRelatório: {link}" if link else "")
+    texto = "Baixaram de preço na Globaldata:\n\n" + "\n\n".join(linhas) + (f"\n\nRelatório: {link}" if link else "")
     itens = "".join(
-        f'<li><a href="{d["url"]}">{d["nome"]}</a> ({d["loja"]}, {d["estado"]})<br>'
+        f'<li><a href="{d["url"]}">{d["nome"]}</a> ({d["estado"]})<br>'
         f'<s>{eur(d["anterior"])}</s> → <b>{eur(d["preco"])}</b></li>' for d in descidas)
-    corpo = f"<p>Baixaram de preço:</p><ul>{itens}</ul>" + (f'<p><a href="{link}">Ver relatório</a></p>' if link else "")
-    assunto = f"RTX 5070 Ti: {len(descidas)} preço(s) baixaram"
+    corpo = (f"<p>Baixaram de preço na Globaldata:</p><ul>{itens}</ul>"
+             + (f'<p><a href="{link}">Ver relatório</a></p>' if link else ""))
+    assunto = "Preço baixou: " + ", ".join(sorted({d["produto"] for d in descidas}))
     enviados = []
     for nome, fn in (("email", lambda: enviar_email(assunto, texto, corpo)),
                      ("WhatsApp", lambda: enviar_whatsapp(f"{assunto}\n\n{texto}"))):
@@ -282,23 +310,29 @@ def alertar(descidas):
 # ---------------------------------------------------------------- principal
 def main():
     hoje = os.getenv("DATA_HOJE") or date.today().isoformat()
-    atuais, falhas = asyncio.run(recolher())
+    atuais, vazios = asyncio.run(recolher())
     hist = ler_historico()
     descidas = detetar_descidas(hist, hoje, atuais)
 
-    lojas_ok = {a["loja"] for a in atuais}
-    hist = [r for r in hist if not (r["data"] == hoje and r["loja"] in lojas_ok)]
+    produtos_ok = {a["produto"] for a in atuais}
+    hist = [r for r in hist if not (r["data"] == hoje and r["produto"] in produtos_ok)]
     hist += [{**a, "data": hoje} for a in atuais]
     gravar_historico(hist)
     gerar_relatorio(hist, hoje)
 
-    for a in sorted(atuais, key=lambda a: -a["preco"]):
-        print(f'{eur(a["preco"]):>12}  {a["loja"]:<12} {a["estado"]:<14} {a["nome"]}')
+    for cfg in PRODUTOS:
+        lista = sorted((a for a in atuais if a["produto"] == cfg["produto"]), key=lambda a: -a["preco"])
+        if lista:
+            print(f"\n{cfg['produto']}")
+        for a in lista:
+            print(f'{eur(a["preco"]):>12}  {a["estado"]:<14} {a["nome"]}')
 
     if descidas and os.getenv("SEM_ALERTAS") != "1":
         alertar(descidas)
-    if falhas:
-        print(f"Sem resultados em: {', '.join(falhas)}. Verifica o URL ou se o site mudou.")
+    # Só falha (e o GitHub avisa-te por email) se não encontrou nada em produto nenhum:
+    # quase de certeza o site mudou ou bloqueou o acesso. Um produto em falta é só um aviso.
+    if vazios and len(vazios) == len(PRODUTOS):
+        print("\nNada encontrado em nenhum produto. Vê o diagnóstico desta execução.")
         sys.exit(1)
 
 
