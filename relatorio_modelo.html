@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preços RTX 5070 Ti</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --fundo: #eef1f5; --papel: #ffffff; --tinta: #1c2430; --suave: #5b6676;
+    --linha: #d5dbe3; --acento: #2f5d8c; --desce: #1f7a50; --sobe: #a8402c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark;
+      --fundo: #161b22; --papel: #1f262f; --tinta: #e4e9ef; --suave: #9aa6b4;
+      --linha: #333d49; --acento: #7fa9d6; --desce: #5cc492; --sobe: #e3836d; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--tinta);
+    font: 16px/1.5 "IBM Plex Sans", system-ui, sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font: 600 clamp(2.2rem, 6vw, 3.6rem)/1 "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    margin: 0 0 8px; letter-spacing: -0.01em; }
+  .resumo { color: var(--suave); margin: 0 0 32px; }
+  h2 { font-size: 1.15rem; font-weight: 600; margin: 40px 0 12px; }
+  .tabela { overflow-x: auto; background: var(--papel); border: 1px solid var(--linha); border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; min-width: 640px; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  th { font-size: .85rem; font-weight: 500; color: var(--suave); }
+  tr:last-child td { border-bottom: 0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  th.num { text-align: right; }
+  .preco { font-weight: 600; }
+  .desce { color: var(--desce); } .sobe { color: var(--sobe); }
+  a { color: var(--acento); }
+  a:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+  .grelha { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  figure { margin: 0; background: var(--papel); border: 1px solid var(--linha); border-radius: 6px; padding: 14px; }
+  figcaption { font-size: .9rem; margin-bottom: 8px; }
+  figcaption span { display: block; color: var(--suave); font-size: .8rem; }
+  .grafico { position: relative; height: 180px; }
+  .vazio { color: var(--suave); }
+</style>
+</head>
+<body>
+<main>
+  <h1>RTX 5070 Ti</h1>
+  <p class="resumo" id="resumo"></p>
+
+  <h2>Disponíveis hoje, do mais caro ao mais barato</h2>
+  <div class="tabela"><table>
+    <thead><tr><th>Placa</th><th>Loja</th><th class="num">Preço</th><th class="num">Desde a última leitura</th><th class="num">Mínimo registado</th></tr></thead>
+    <tbody id="linhas"></tbody>
+  </table></div>
+
+  <h2>Evolução do preço</h2>
+  <div class="grelha" id="graficos"></div>
+
+  <h2 id="titulo-esgotados" hidden>Esgotadas hoje</h2>
+  <ul id="esgotados"></ul>
+</main>
+<script>
+const DADOS = __DADOS__;
+const eur = v => v.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const hoje = DADOS.hoje;
+
+const atuais = DADOS.series
+  .map(s => ({ ...s, ultimo: s.pontos[s.pontos.length - 1] }))
+  .filter(s => s.ultimo.data === hoje);
+const disponiveis = atuais.filter(s => s.ultimo.disponivel).sort((a, b) => b.ultimo.preco - a.ultimo.preco);
+const esgotados = atuais.filter(s => !s.ultimo.disponivel);
+
+const dataPt = d => new Date(d + "T12:00:00").toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" });
+document.getElementById("resumo").textContent = disponiveis.length
+  ? `Atualizado a ${dataPt(hoje)}. ${disponiveis.length} placas disponíveis; a mais barata custa ${eur(disponiveis[disponiveis.length - 1].ultimo.preco)}.`
+  : `Atualizado a ${dataPt(hoje)}. Nenhuma placa disponível hoje.`;
+
+const tbody = document.getElementById("linhas");
+if (!disponiveis.length) tbody.innerHTML = `<tr><td colspan="5" class="vazio">Sem placas disponíveis nesta leitura.</td></tr>`;
+for (const s of disponiveis) {
+  const ant = s.pontos.length > 1 ? s.pontos[s.pontos.length - 2].preco : null;
+  const dif = ant === null ? null : s.ultimo.preco - ant;
+  const minimo = Math.min(...s.pontos.map(p => p.preco));
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><a href="${s.url}" target="_blank" rel="noopener"></a></td>
+    <td>${s.loja}</td>
+    <td class="num preco">${eur(s.ultimo.preco)}</td>
+    <td class="num ${dif < 0 ? "desce" : dif > 0 ? "sobe" : ""}">${dif === null ? "Primeira leitura" : dif === 0 ? "Igual" : (dif > 0 ? "+" : "−") + eur(Math.abs(dif))}</td>
+    <td class="num">${eur(minimo)}</td>`;
+  tr.querySelector("a").textContent = s.nome;
+  tbody.appendChild(tr);
+}
+
+const grelha = document.getElementById("graficos");
+for (const s of disponiveis) {
+  const fig = document.createElement("figure");
+  fig.innerHTML = `<figcaption></figcaption><div class="grafico"><canvas></canvas></div>`;
+  fig.querySelector("figcaption").innerHTML = `<span>${s.loja}</span>`;
+  fig.querySelector("figcaption").prepend(document.createTextNode(s.nome));
+  grelha.appendChild(fig);
+  new Chart(fig.querySelector("canvas"), {
+    type: "line",
+    data: {
+      labels: s.pontos.map(p => new Date(p.data + "T12:00:00").toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" })),
+      datasets: [{ data: s.pontos.map(p => p.preco), borderColor: css("--acento"), backgroundColor: css("--acento"),
+        borderWidth: 2, pointRadius: s.pontos.length > 30 ? 0 : 3, stepped: true }]
+    },
+    options: {
+      maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => eur(c.parsed.y) } } },
+      scales: {
+        x: { ticks: { color: css("--suave"), maxTicksLimit: 6 }, grid: { display: false } },
+        y: { ticks: { color: css("--suave"), callback: v => eur(v) }, grid: { color: css("--linha") } }
+      }
+    }
+  });
+}
+
+if (esgotados.length) {
+  document.getElementById("titulo-esgotados").hidden = false;
+  const ul = document.getElementById("esgotados");
+  for (const s of esgotados) {
+    const li = document.createElement("li");
+    li.innerHTML = `<a href="${s.url}" target="_blank" rel="noopener"></a> (${s.loja})`;
+    li.querySelector("a").textContent = s.nome;
+    ul.appendChild(li);
+  }
+}
+</script>
+</body>
+</html>
