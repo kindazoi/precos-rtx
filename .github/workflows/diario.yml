@@ -1,1 +1,45 @@
+name: Preços RTX 5070 Ti
+
+on:
+  schedule:
+    - cron: "0 8 * * *"   # todos os dias às 8h UTC (8h em Lisboa no inverno, 9h no verão)
+  workflow_dispatch:        # permite correr manualmente no separador Actions
+
+permissions:
+  contents: write
+
+jobs:
+  precos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Recolher preços
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
+          WHATSAPP_APIKEY: ${{ secrets.WHATSAPP_APIKEY }}
+          REPORT_URL: ${{ vars.REPORT_URL }}
+          NOVOATALHO_URL: ${{ vars.NOVOATALHO_URL }}
+        run: python scraper.py
+
+      - name: Guardar histórico e relatório
+        if: always()
+        run: |
+          git config user.name "precos-bot"
+          git config user.email "precos-bot@users.noreply.github.com"
+          git add data docs
+          git diff --cached --quiet || git commit -m "Preços de $(date -u +%F)"
+          git push
 
