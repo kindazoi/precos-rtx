@@ -48,10 +48,14 @@ CAMPOS = ["data", "loja", "url", "nome", "preco", "estado"]
 EXTRAIR_JS = r"""
 () => {
   const alvo = /5070\s*-?\s*ti/i;
-  const precoRe = /(\d{1,3}(?:[.\s\u00a0]\d{3})*|\d+),(\d{2})\s*€|€\s*(\d{1,3}(?:[.\s\u00a0]\d{3})*|\d+),(\d{2})/g;
+  const precoRe = /(\d{1,3}(?:[.\s\u00a0\u202f]\d{3})*|\d+)[,.](\d{2})\s*€|€\s*(\d{1,3}(?:[.\s\u00a0\u202f]\d{3})*|\d+)[,.](\d{2})/g;
   const limpa = h => h.split('#')[0].split('?')[0];
-  const nomeDe = a => (a.getAttribute('title') || a.innerText || a.getAttribute('aria-label') || '')
-    .replace(/\s+/g, ' ').trim();
+  const nomeDe = a => {
+    const cands = [a.getAttribute('title'), a.getAttribute('aria-label'), a.innerText, a.textContent,
+                   ...[...a.querySelectorAll('img[alt]')].map(i => i.alt)]
+      .filter(Boolean).map(t => t.replace(/\s+/g, ' ').trim());
+    return cands.filter(t => alvo.test(t)).sort((x, y) => y.length - x.length)[0] || '';
+  };
   const prod = new Map();
   for (const a of document.querySelectorAll('a[href]')) {
     const nome = nomeDe(a);
@@ -68,7 +72,7 @@ EXTRAIR_JS = r"""
       if (urls.size > 1) break;
       el = pai;
     }
-    const texto = el.innerText || '';
+    const texto = el.innerText || el.textContent || '';
     if (texto.length > p.texto.length) p.texto = texto;
     prod.set(url, p);
   }
@@ -84,7 +88,8 @@ EXTRAIR_JS = r"""
 
 # ---------------------------------------------------------------- recolha
 def para_float(s: str) -> float:
-    return float(re.sub(r"[\s\u00a0.]", "", s).replace(",", "."))
+    inteiro, dec = s.rsplit(",", 1)
+    return float(re.sub(r"\D", "", inteiro) + "." + dec)
 
 
 def ler_estado(texto: str) -> str:
@@ -112,6 +117,28 @@ def normalizar(loja, brutos):
     return itens
 
 
+async def diagnosticar(page, loja, brutos):
+    """Guarda uma captura e o HTML da página em debug/ e mostra pistas no registo."""
+    pasta = Path("debug"); pasta.mkdir(exist_ok=True)
+    nome = re.sub(r"\W+", "_", loja.lower())
+    try:
+        await page.screenshot(path=str(pasta / f"{nome}.png"), full_page=True)
+        (pasta / f"{nome}.html").write_text(await page.content(), encoding="utf-8")
+        texto = await page.evaluate("() => document.body ? document.body.innerText : ''")
+    except Exception as e:  # noqa: BLE001
+        print(f"[{loja}] diagnóstico falhou: {e}")
+        return
+    print(f"[{loja}] diagnóstico:")
+    print(f"    título da página: {await page.title()!r}")
+    print(f"    endereço final:   {page.url}")
+    print(f"    vezes que '5070 Ti' aparece no texto: {len(re.findall(r'5070\s*-?\s*ti', texto, re.I))}")
+    print(f"    produtos lidos antes dos filtros: {len(brutos)}")
+    for b in brutos[:5]:
+        print(f"      - {b['nome'][:80]!r}  preços={b['precos'][:3]}")
+    print(f"    início do texto da página: {texto[:300]!r}")
+    print("    A captura e o HTML ficam no artefacto 'diagnostico' desta execução.")
+
+
 async def recolher():
     from playwright.async_api import async_playwright
 
@@ -127,22 +154,28 @@ async def recolher():
             page = await ctx.new_page()
             try:
                 await page.goto(url, wait_until="domcontentloaded", timeout=60_000)
-                await page.wait_for_timeout(4000)
+                try:  # espera até aparecer texto com "5070 Ti" (resultados carregados por JavaScript)
+                    await page.wait_for_function(
+                        "() => /5070\\s*-?\\s*ti/i.test(document.body ? document.body.innerText : '')",
+                        timeout=25_000)
+                except Exception:  # noqa: BLE001
+                    pass
+                await page.wait_for_timeout(3000)
                 for _ in range(6):  # força o carregamento de produtos com lazy loading
                     await page.mouse.wheel(0, 4000)
                     await page.wait_for_timeout(800)
                 brutos = await page.evaluate(EXTRAIR_JS)
+                itens = normalizar(loja, brutos)
+                print(f"[{loja}] {len(itens)} placas encontradas")
+                if not itens:
+                    await diagnosticar(page, loja, brutos)
+                    falhas.append(loja)
+                resultados.extend(itens)
             except Exception as e:  # noqa: BLE001
                 print(f"[{loja}] erro ao abrir {url}: {e}")
                 falhas.append(loja)
-                continue
             finally:
                 await page.close()
-            itens = normalizar(loja, brutos)
-            print(f"[{loja}] {len(itens)} placas encontradas")
-            if not itens:
-                falhas.append(loja)
-            resultados.extend(itens)
         await browser.close()
     return resultados, falhas
 
