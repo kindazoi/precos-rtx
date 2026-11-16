@@ -34,6 +34,14 @@ jobs:
           NOVOATALHO_URL: ${{ vars.NOVOATALHO_URL }}
         run: python scraper.py
 
+      - name: Guardar diagnóstico (só quando uma loja falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostico
+          path: debug/
+          if-no-files-found: ignore
+
       - name: Guardar histórico e relatório
         if: always()
         run: |
@@ -42,4 +50,3 @@ jobs:
           git add data docs
           git diff --cached --quiet || git commit -m "Preços de $(date -u +%F)"
           git push
-
