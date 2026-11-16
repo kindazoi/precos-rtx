@@ -1,4 +1,4 @@
-name: Preços RTX 5070 Ti
+name: Preços Globaldata
 
 on:
   schedule:
@@ -31,7 +31,6 @@ jobs:
           WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
           WHATSAPP_APIKEY: ${{ secrets.WHATSAPP_APIKEY }}
           REPORT_URL: ${{ vars.REPORT_URL }}
-          NOVOATALHO_URL: ${{ vars.NOVOATALHO_URL }}
         run: python scraper.py
 
       - name: Guardar diagnóstico (só quando uma loja falha)
