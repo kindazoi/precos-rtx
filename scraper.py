@@ -28,7 +28,7 @@ LOJAS = {
         "https://www.globaldata.pt/componentes/placas-graficas/placas-graficas-nvidia/geforce-rtx-5070-ti?sz=96",
     ),
     # Confirma este endereço: pesquisa "rtx 5070 ti" no site e copia o URL da página de resultados.
-        "Novo Atalho": os.getenv("NOVOATALHO_URL", "https://www.novoatalho.pt/search?q=placa%20gr%C3%A1fica%20geforce%20rtx%205070%20ti"),
+            "Novo Atalho": os.getenv("NOVOATALHO_URL") or "https://www.novoatalho.pt/search?q=placa%20gr%C3%A1fica%20geforce%20rtx%205070%20ti",
 }
 PRECO_MINIMO = 300.0  # ignora valores tipo "poupa 50 €" ou portes
 EXCLUIR = re.compile(r"port[áa]til|laptop|notebook|computador|desktop|\bpc\b|mini.?pc|bundle|pack|ryzen|core i\d|core ultra|\bssd\b|\bram\b|\bddr[45]\b|windows|\d{2}(\.\d)?\"", re.I)
